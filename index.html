@@ -157,6 +157,114 @@
             .kpi-grid { grid-template-columns: repeat(3, 1fr); }
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
         }
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -100%;
+                width: 280px;
+                transition: left 0.3s ease;
+                z-index: 100;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 99;
+            }
+            .sidebar-overlay.open { display: block; }
+            .mobile-header {
+                display: flex !important;
+                align-items: center;
+                gap: 12px;
+                padding: 12px 16px;
+                background: var(--surface);
+                border-bottom: 1px solid var(--border);
+                position: sticky;
+                top: 0;
+                z-index: 50;
+            }
+            .mobile-header button {
+                background: none;
+                border: 1px solid var(--border);
+                color: var(--text);
+                font-size: 1.3rem;
+                padding: 4px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+            .main { margin-left: 0; padding: 16px 12px; }
+            h1.page-title { font-size: 1.3rem; }
+            h2 { font-size: 1.1rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .kpi-card { padding: 12px 8px; }
+            .kpi-card .value { font-size: 1.2rem; }
+            .kr-row { flex-direction: column; gap: 12px; }
+            .kr-metric .value { font-size: 1.5rem; }
+            .persona-header { gap: 8px; }
+            .persona-metric .value { font-size: 1rem; }
+            .comment-filters { flex-direction: column; }
+            .comment-filters input, .comment-filters select { width: 100%; }
+            table { font-size: 0.75rem; }
+            th, td { padding: 6px 8px; }
+        }
+        @media (min-width: 769px) {
+            .mobile-header { display: none !important; }
+            .sidebar-overlay { display: none !important; }
+        }
+
+        /* ========== LOGIN ========== */
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg);
+        }
+        .login-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px 32px;
+            width: 100%;
+            max-width: 380px;
+            margin: 0 16px;
+            text-align: center;
+        }
+        .login-box h1 { font-size: 1.5rem; margin-bottom: 8px; }
+        .login-box p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+        .login-box input {
+            width: 100%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+        .login-box input:focus { outline: none; border-color: var(--blue); }
+        .login-box .login-btn {
+            width: 100%;
+            background: var(--blue);
+            color: white;
+            border: none;
+            padding: 11px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+        .login-box .login-btn:hover { opacity: 0.85; }
+        .login-error {
+            color: var(--red);
+            font-size: 0.82rem;
+            margin-top: 10px;
+            display: none;
+        }
 
         /* Cards */
         .card {
@@ -261,9 +369,34 @@
 </head>
 <body>
 
+<!-- ========== LOGIN SCREEN ========== -->
+<div class="login-screen" id="loginScreen">
+    <div class="login-box">
+        <h1>📊 CSAT Prisma/Radar</h1>
+        <p>Faça login para acessar o dashboard.</p>
+        <form onsubmit="handleLogin(event)">
+            <input type="text" id="loginUser" placeholder="Usuário" autocomplete="username" required>
+            <input type="password" id="loginPass" placeholder="Senha" autocomplete="current-password" required>
+            <button type="submit" class="login-btn">Entrar</button>
+        </form>
+        <div class="login-error" id="loginError">Usuário ou senha incorretos.</div>
+    </div>
+</div>
+
+<!-- ========== APP (hidden until login) ========== -->
+<div id="appContainer" style="display:none;">
+
+<!-- Mobile header -->
+<div class="mobile-header" id="mobileHeader">
+    <button onclick="toggleSidebar()">☰</button>
+    <span style="font-size:1rem;font-weight:600;">📊 CSAT Prisma/Radar</span>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
 <!-- ========== SIDEBAR ========== -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
     <h1>📊 CSAT Prisma/Radar</h1>
+    <button class="btn" style="background:var(--border);padding:7px 0;font-size:0.8rem;" onclick="handleLogout()">🚪 Sair</button>
 
     <div>
         <div class="section-title">Fonte de dados</div>
@@ -409,6 +542,7 @@
         <div id="commentsSection"></div>
     </div>
 </main>
+</div><!-- /appContainer -->
 
 <script>
 // ============================================================
@@ -1290,9 +1424,49 @@ function renderComments() {
 }
 
 // ============================================================
+// AUTH
+// ============================================================
+function handleLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById("loginUser").value;
+    const pass = document.getElementById("loginPass").value;
+    if (user === "prismaradar" && pass === "arcotech") {
+        sessionStorage.setItem("csat_auth", "1");
+        showApp();
+    } else {
+        document.getElementById("loginError").style.display = "block";
+    }
+}
+
+function handleLogout() {
+    sessionStorage.removeItem("csat_auth");
+    document.getElementById("appContainer").style.display = "none";
+    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("loginUser").value = "";
+    document.getElementById("loginPass").value = "";
+    document.getElementById("loginError").style.display = "none";
+}
+
+function showApp() {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("appContainer").style.display = "block";
+    if (!rawData.length) loadData();
+}
+
+// ============================================================
+// MOBILE SIDEBAR TOGGLE
+// ============================================================
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebarOverlay").classList.toggle("open");
+}
+
+// ============================================================
 // INIT
 // ============================================================
-loadData();
+if (sessionStorage.getItem("csat_auth") === "1") {
+    showApp();
+}
 </script>
 </body>
 </html>
