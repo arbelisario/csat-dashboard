@@ -9,6 +9,96 @@ import re
 # --- Config ---
 st.set_page_config(page_title="CSAT Prisma/Radar", page_icon="📊", layout="wide")
 
+# --- Custom CSS for responsive layout ---
+st.markdown("""
+<style>
+    /* Mobile-friendly adjustments */
+    @media (max-width: 768px) {
+        /* Stack columns vertically on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+        [data-testid="stHorizontalBlock"] > div {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+        /* Reduce padding on mobile */
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        /* Make metrics more compact */
+        [data-testid="stMetric"] {
+            padding: 0.5rem 0 !important;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 1.2rem !important;
+        }
+        [data-testid="stMetricLabel"] {
+            font-size: 0.75rem !important;
+        }
+        /* Sidebar overlay on mobile */
+        [data-testid="stSidebar"] {
+            min-width: 260px !important;
+        }
+        /* Make dataframes scrollable */
+        [data-testid="stDataFrame"] {
+            overflow-x: auto !important;
+        }
+        /* Charts responsive height */
+        .js-plotly-plot {
+            min-height: 250px !important;
+        }
+    }
+    @media (min-width: 769px) and (max-width: 1024px) {
+        /* Tablet: 2 columns max */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+        [data-testid="stHorizontalBlock"] > div {
+            flex: 1 1 48% !important;
+            min-width: 48% !important;
+        }
+    }
+    /* Login form styling */
+    .login-container {
+        max-width: 400px;
+        margin: 10vh auto;
+        padding: 2rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Authentication ---
+def check_login():
+    """Simple static authentication."""
+    if st.session_state.get("authenticated"):
+        return True
+
+    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+    st.title("📊 CSAT Prisma/Radar")
+    st.markdown("Faça login para acessar o dashboard.")
+
+    with st.form("login_form"):
+        username = st.text_input("Usuário")
+        password = st.text_input("Senha", type="password")
+        submitted = st.form_submit_button("Entrar", use_container_width=True)
+
+    if submitted:
+        if username == "prismaradar" and password == "arcotech":
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Usuário ou senha incorretos.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    return False
+
+
+if not check_login():
+    st.stop()
+
 SHEETS_BASE = (
     "https://docs.google.com/spreadsheets/d/"
     "12m1m0SUwpbSckXXnqP79Y-1ipplL_s2C1ML-RASch2w"
@@ -195,6 +285,10 @@ def get_group_for_type(ut):
 # SIDEBAR
 # ============================================================
 st.sidebar.title("📊 CSAT Prisma/Radar")
+if st.sidebar.button("🚪 Sair"):
+    st.session_state["authenticated"] = False
+    st.rerun()
+st.sidebar.markdown("---")
 
 data_source = st.sidebar.radio("Fonte de dados", ["Google Sheets (automático)", "Upload CSV"], index=0)
 
@@ -329,10 +423,12 @@ comments_count = (filtered["comment"].str.len() > 3).sum()
 
 not5 = pct(filtered["score"] != 5, total)
 
-k1, k2, k3, k4, k5, k6 = st.columns(6)
+k1, k2, k3 = st.columns(3)
 k1.metric("Respostas", f"{total}")
 k2.metric("% Nota 5 (Excelência)", f"{top_box:.1f}%")
 k3.metric("CSAT (4+5)", f"{csat_45:.1f}%")
+
+k4, k5, k6 = st.columns(3)
 k4.metric("% Não-5 (oportunidade)", f"{not5:.1f}%")
 k5.metric("Detratores (1+2)", f"{detractors:.1f}%")
 k6.metric("Nota Média", f"{avg_score:.2f}")
